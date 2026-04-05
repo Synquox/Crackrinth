@@ -150,7 +150,7 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
             None => (Arc::from("steve"), MinecraftSkinVariant::Classic, None, None, selected_credentials.offline_profile.id),
         }
     } else {
-        let profile = profile.unwrap();
+        let profile = profile.clone().unwrap();
         let current_skin = profile.current_skin()?;
         let current_cape_id = profile.current_cape().map(|cape| cape.id);
         let default_cape_id = DefaultMinecraftCape::get(profile.id, &state.pool)

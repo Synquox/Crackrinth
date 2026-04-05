@@ -1,5 +1,16 @@
 * text=auto eol=lf
 
+# Ensure binary files are never treated as text
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+
 # SQLx calculates a checksum of migration scripts at build time to compare
 # it with the checksum of the applied migration for the same version at
 # runtime, to know if the migration script has been changed, and thus the
