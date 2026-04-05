@@ -87,12 +87,16 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         env:
           SQLX_OFFLINE: 'true'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PASSWORD }}
 
       - name: Build Linux app
         run: pnpm --filter=@modrinth/app run tauri build
         if: startsWith(matrix.platform, 'ubuntu')
         env:
           SQLX_OFFLINE: 'true'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PASSWORD }}
 
       - name: Build Windows app
         run: pnpm --filter=@modrinth/app run tauri build --verbose --bundles "nsis"
