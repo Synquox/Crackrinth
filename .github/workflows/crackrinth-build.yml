@@ -100,15 +100,22 @@ jobs:
         env:
           SQLX_OFFLINE: 'true'
 
+      - name: Prepare Artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          # Copy Windows/Linux artifacts
+          if [ -d "target/release/bundle" ]; then
+            find target/release/bundle -maxdepth 3 -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.zip" -o -name "*.sig" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} dist/ \;
+          fi
+          # Copy macOS artifacts
+          if [ -d "target/universal-apple-darwin/release/bundle" ]; then
+            find target/universal-apple-darwin/release/bundle -maxdepth 3 -type f \( -name "*.dmg" -o -name "*.tar.gz" -o -name "*.zip" -o -name "*.sig" \) -exec cp {} dist/ \;
+          fi
+
       - name: Upload app bundles
         uses: actions/upload-artifact@v4
         with:
           name: Crackrinth-Setup (${{ matrix.artifact-target-name }})
-          path: |
-            target/release/bundle/appimage/Crackrinth_*.AppImage*
-            target/release/bundle/deb/Crackrinth_*.deb*
-            target/release/bundle/rpm/Crackrinth-*.rpm*
-            target/universal-apple-darwin/release/bundle/macos/Crackrinth.app.tar.gz*
-            target/universal-apple-darwin/release/bundle/dmg/Crackrinth_*.dmg*
-            target/release/bundle/nsis/Crackrinth_*-setup.exe*
+          path: dist/*
 
