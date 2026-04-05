@@ -1,21 +1,16 @@
-# Copying Guidelines
+# Copying Guidelines: Crackrinth Fork
 
 All packages in this repository are licensed under their respective licenses. For more information, refer to the LICENSE file in each package.
 
-For detailed information, consult each package's COPYING.md, LICENSE.txt, or LICENSE file, if available.
+## Branding Disclosure
 
-## Modrinth Branding
+This project, **Crackrinth**, is a fork of the Modrinth App. 
 
-The use of Modrinth branding elements, including but not limited to the wrench-in-labyrinth logo, the landing image, and any variations thereof, is strictly prohibited without explicit written permission from Rinth, Inc. This includes trademarks, logos, or other branding elements.
+In accordance with the original Modrinth branding policy, **all Modrinth-specific branding assets have been removed from this fork**, including the wrench-in-labyrinth logo and the repository cover images. 
 
-> All rights reserved. © 2020-2025 Rinth, Inc.
+**Crackrinth** uses its own unique "Labyrinth-C" logo and branding to ensure zero confusion with official Modrinth products.
 
-This includes, but may not be limited to, the following files:
+- **Removed assets**: `.idea/icon.svg`, `.github/assets/*.png`, and Modrinth-branded icons in `apps/app/icons/`.
+- **New branding**: All official icons have been replaced with our own Crackrinth design.
 
-- .idea/icon.svg
-- .github/api_cover.png
-- .github/app_cover.png
-- .github/monorepo_cover.png
-- .github/web_cover.png
-
-If you fork this repository, you must remove all Modrinth branding assets from your fork.
+All rights for the original source code remain with the original authors as per the LICENSE files.
