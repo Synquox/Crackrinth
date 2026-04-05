@@ -23,16 +23,7 @@ watch(
 </script>
 
 <template>
-	<div class="flex items-center justify-between gap-4">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Telemetry</h2>
-			<p class="m-0 text-sm">
-				Crackrinth collects anonymized analytics and usage data to improve the user experience.
-				By disabling this option, you opt out and your data will no longer be collected.
-			</p>
-		</div>
-		<Toggle id="opt-out-analytics" v-model="settings.telemetry" />
-	</div>
+
 
 	<div class="mt-4 flex items-center justify-between gap-4">
 		<div>

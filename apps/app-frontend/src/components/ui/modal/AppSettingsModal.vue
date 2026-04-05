@@ -4,7 +4,6 @@ import {
 	GameIcon,
 	GaugeIcon,
 	LanguagesIcon,
-	ModrinthIcon,
 	PaintbrushIcon,
 	SettingsIcon,
 	ShieldIcon,
@@ -145,6 +144,7 @@ const messages = defineMessages({
 		defaultMessage: 'Downloading v{version}',
 	},
 })
+import CrackrinthSymbol from '@/assets/crackrinth_symbol_logo.png'
 </script>
 <template>
 	<TabbedModal ref="modal" :tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)">
@@ -175,7 +175,7 @@ const messages = defineMessages({
 						}"
 						@click="devModeCount"
 					>
-						<ModrinthIcon class="w-6 h-6" />
+						<img :src="CrackrinthSymbol" class="w-6 h-6" />
 					</button>
 					<div>
 						<p class="m-0">Crackrinth {{ version }}</p>
