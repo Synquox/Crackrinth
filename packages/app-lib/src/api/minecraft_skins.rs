@@ -17,7 +17,7 @@ use crate::{
     state::{
         MinecraftCharacterExpressionState, MinecraftProfile,
         minecraft_skins::{
-            CustomMinecraftSkin, DefaultMinecraftCape, mojang_api,
+            CustomMinecraftSkin, DefaultMinecraftCape, EquippedOfflineSkin, mojang_api,
         },
     },
 };
@@ -101,12 +101,14 @@ pub async fn get_available_capes() -> crate::Result<Vec<Cape>> {
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
-    let profile =
-        selected_credentials.online_profile().await.ok_or_else(|| {
-            ErrorKind::OnlineMinecraftProfileUnavailable {
-                user_name: selected_credentials.offline_profile.name.clone(),
-            }
-        })?;
+    let profile = selected_credentials.online_profile().await;
+
+    if selected_credentials.access_token == "offline_access_token" || profile.is_none() {
+        // Offline accounts don't currently support capes
+        return Ok(vec![]);
+    }
+
+    let profile = profile.unwrap();
 
     let default_cape_id = DefaultMinecraftCape::get(profile.id, &state.pool)
         .await?
@@ -139,24 +141,29 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
-    let profile =
-        selected_credentials.online_profile().await.ok_or_else(|| {
-            ErrorKind::OnlineMinecraftProfileUnavailable {
-                user_name: selected_credentials.offline_profile.name.clone(),
-            }
-        })?;
+    let profile = selected_credentials.online_profile().await;
 
-    let current_skin = profile.current_skin()?;
-    let current_cape_id = profile.current_cape().map(|cape| cape.id);
-    let default_cape_id = DefaultMinecraftCape::get(profile.id, &state.pool)
-        .await?
-        .map(|cape| cape.id);
+    let (current_skin_texture_key, current_skin_variant, current_cape_id, default_cape_id, profile_id) = if selected_credentials.access_token == "offline_access_token" || profile.is_none() {
+        let equipped = EquippedOfflineSkin::get(selected_credentials.offline_profile.id, &state.pool).await?;
+        match equipped {
+            Some(e) => (Arc::from(e.texture_key), e.variant, e.cape_id, None, selected_credentials.offline_profile.id),
+            None => (Arc::from("steve"), MinecraftSkinVariant::Classic, None, None, selected_credentials.offline_profile.id),
+        }
+    } else {
+        let profile = profile.unwrap();
+        let current_skin = profile.current_skin()?;
+        let current_cape_id = profile.current_cape().map(|cape| cape.id);
+        let default_cape_id = DefaultMinecraftCape::get(profile.id, &state.pool)
+            .await?
+            .map(|cape| cape.id);
+        (current_skin.texture_key(), current_skin.variant, current_cape_id, default_cape_id, profile.id)
+    };
 
     // Keep track of whether we have found the currently equipped skin, to potentially avoid marking
     // several skins as equipped, and know if the equipped skin was found (see below)
     let found_equipped_skin = Arc::new(AtomicBool::new(false));
 
-    let custom_skins = CustomMinecraftSkin::get_all(profile.id, &state.pool)
+    let custom_skins = CustomMinecraftSkin::get_all(profile_id, &state.pool)
         .await?
         .then(|custom_skin| {
             let found_equipped_skin = Arc::clone(&found_equipped_skin);
@@ -165,8 +172,8 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
                 // Several custom skins may reuse the same texture for different cape or skin model
                 // variations, so check all attributes for correctness
                 let is_equipped = !found_equipped_skin.load(Ordering::Acquire)
-                    && custom_skin.texture_key == *current_skin.texture_key()
-                    && custom_skin.variant == current_skin.variant
+                    && custom_skin.texture_key == *current_skin_texture_key
+                    && custom_skin.variant == current_skin_variant
                     && custom_skin.cape_id
                         == if custom_skin.cape_id.is_some() {
                             current_cape_id
@@ -200,8 +207,8 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
     let default_skins =
         stream::iter(assets::DEFAULT_SKINS.iter().map(|default_skin| {
             let is_equipped = !found_equipped_skin.load(Ordering::Acquire)
-                && default_skin.texture_key == current_skin.texture_key()
-                && default_skin.variant == current_skin.variant;
+                && default_skin.texture_key == current_skin_texture_key
+                && default_skin.variant == current_skin_variant;
 
             found_equipped_skin.fetch_or(is_equipped, Ordering::AcqRel);
 
@@ -225,16 +232,19 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
     // add it to the list of available skins as a custom external skin, set by an
     // external service (e.g., the Minecraft launcher or website). This way we guarantee
     // that the currently equipped skin is always returned as available
-    if !found_equipped_skin.load(Ordering::Acquire) {
-        available_skins.push(Skin {
-            texture_key: current_skin.texture_key(),
-            name: current_skin.name.as_deref().map(Arc::from),
-            variant: current_skin.variant,
-            cape_id: current_cape_id,
-            texture: Arc::clone(&current_skin.url),
-            source: SkinSource::CustomExternal,
-            is_equipped: true,
-        });
+    if !found_equipped_skin.load(Ordering::Acquire) && selected_credentials.access_token != "offline_access_token" {
+        if let Some(profile) = profile {
+             let current_skin = profile.current_skin()?;
+             available_skins.push(Skin {
+                texture_key: current_skin.texture_key(),
+                name: current_skin.name.as_deref().map(Arc::from),
+                variant: current_skin.variant,
+                cape_id: current_cape_id,
+                texture: Arc::clone(&current_skin.url),
+                source: SkinSource::CustomExternal,
+                is_equipped: true,
+            });
+        }
     }
 
     Ok(available_skins)
@@ -260,34 +270,41 @@ pub async fn add_and_equip_custom_skin(
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
-    // We have to equip the skin first, as it's the Mojang API backend who knows
-    // how to compute the texture key we require, which we can then read from the
-    // updated player profile
-    mojang_api::MinecraftSkinOperation::equip(
-        &selected_credentials,
-        stream::iter([Ok::<_, String>(Bytes::clone(&texture_blob))]),
-        variant,
-    )
-    .await?;
+    if selected_credentials.access_token != "offline_access_token" {
+        // We have to equip the skin first, as it's the Mojang API backend who knows
+        // how to compute the texture key we require, which we can then read from the
+        // updated player profile
+        mojang_api::MinecraftSkinOperation::equip(
+            &selected_credentials,
+            stream::iter([Ok::<_, String>(Bytes::clone(&texture_blob))]),
+            variant,
+        )
+        .await?;
+    }
 
-    let profile =
-        selected_credentials.online_profile().await.ok_or_else(|| {
-            ErrorKind::OnlineMinecraftProfileUnavailable {
-                user_name: selected_credentials.offline_profile.name.clone(),
-            }
-        })?;
-
-    sync_cape(&state, &selected_credentials, &profile, cape_override).await?;
+    let profile = selected_credentials.online_profile().await;
+    let (profile_id, texture_key) = if let Some(profile) = profile {
+        sync_cape(&state, &selected_credentials, &profile, cape_override).await?;
+        (profile.id, profile.current_skin()?.texture_key())
+    } else {
+        // Default to a deterministic key for offline/local skins if mojang is unavailable
+        let key = Arc::from(format!("offline_{}", Uuid::new_v4()));
+        (selected_credentials.offline_profile.id, key)
+    };
 
     CustomMinecraftSkin::add(
-        profile.id,
-        &profile.current_skin()?.texture_key(),
+        profile_id,
+        &texture_key,
         &texture_blob,
         variant,
         cape_override,
         &state.pool,
     )
     .await?;
+
+    if selected_credentials.access_token == "offline_access_token" {
+        EquippedOfflineSkin::set(profile_id, &texture_key, variant, cape_override, &state.pool).await?;
+    }
 
     Ok(())
 }
@@ -359,21 +376,30 @@ pub async fn equip_skin(skin: Skin) -> crate::Result<()> {
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
-    let profile =
-        selected_credentials.online_profile().await.ok_or_else(|| {
+    if selected_credentials.access_token == "offline_access_token" {
+        EquippedOfflineSkin::set(
+            selected_credentials.offline_profile.id,
+            &skin.texture_key,
+            skin.variant,
+            skin.cape_id,
+            &state.pool,
+        ).await?;
+    } else {
+        let profile = selected_credentials.online_profile().await.ok_or_else(|| {
             ErrorKind::OnlineMinecraftProfileUnavailable {
                 user_name: selected_credentials.offline_profile.name.clone(),
             }
         })?;
 
-    mojang_api::MinecraftSkinOperation::equip(
-        &selected_credentials,
-        png_util::url_to_data_stream(&skin.texture).await?,
-        skin.variant,
-    )
-    .await?;
+        mojang_api::MinecraftSkinOperation::equip(
+            &selected_credentials,
+            png_util::url_to_data_stream(&skin.texture).await?,
+            skin.variant,
+        )
+        .await?;
 
-    sync_cape(&state, &selected_credentials, &profile, skin.cape_id).await?;
+        sync_cape(&state, &selected_credentials, &profile, skin.cape_id).await?;
+    }
 
     Ok(())
 }

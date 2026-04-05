@@ -178,3 +178,55 @@ impl CustomMinecraftSkin {
         Ok(())
     }
 }
+
+/// Represents the equipped skin for an offline player.
+#[derive(Debug, Clone)]
+pub struct EquippedOfflineSkin {
+    pub minecraft_user_uuid: Uuid,
+    pub texture_key: String,
+    pub variant: MinecraftSkinVariant,
+    pub cape_id: Option<Uuid>,
+}
+
+impl EquippedOfflineSkin {
+    pub async fn set(
+        minecraft_user_id: Uuid,
+        texture_key: &str,
+        variant: MinecraftSkinVariant,
+        cape_id: Option<Uuid>,
+        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+    ) -> crate::Result<()> {
+        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+        let cape_id = cape_id.map(|id| id.hyphenated());
+
+        sqlx::query!(
+            "INSERT OR REPLACE INTO equipped_offline_skins (minecraft_user_uuid, texture_key, variant, cape_id) VALUES (?, ?, ?, ?)",
+            minecraft_user_id, texture_key, variant, cape_id
+        )
+        .execute(&mut *db.acquire().await?)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get(
+        minecraft_user_id: Uuid,
+        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+    ) -> crate::Result<Option<Self>> {
+        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+
+        Ok(sqlx::query!(
+            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: Hyphenated' \
+            FROM equipped_offline_skins WHERE minecraft_user_uuid = ?",
+            minecraft_user_id
+        )
+        .fetch_optional(&mut *db.acquire().await?)
+        .await?
+        .map(|row| Self {
+            minecraft_user_uuid: minecraft_user_id.into(),
+            texture_key: row.texture_key,
+            variant: row.variant,
+            cape_id: row.cape_id.map(Uuid::from),
+        }))
+    }
+}

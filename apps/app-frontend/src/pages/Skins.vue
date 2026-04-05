@@ -62,6 +62,7 @@ const currentUserId = ref<string | undefined>(undefined)
 const username = computed(() => currentUser.value?.profile?.name ?? undefined)
 const selectedSkin = ref<Skin | null>(null)
 const defaultCape = ref<Cape>()
+const isOfflineUser = computed(() => currentUser.value?.access_token === 'offline_access_token')
 
 const originalSelectedSkin = ref<Skin | null>(null)
 const originalDefaultCape = ref<Cape>()
@@ -334,7 +335,10 @@ await Promise.all([loadCapes(), loadSkins(), loadCurrentUser()])
 					:initial-rotation="Math.PI / 8"
 				>
 					<template #subtitle>
-						<ButtonStyled :disabled="!!selectedSkin?.cape_id">
+						<div v-if="isOfflineUser" class="text-sm text-dimmer italic bg-bg-raised/80 px-3 py-1 rounded-full border border-divider/30">
+							Capes are not available offline
+						</div>
+						<ButtonStyled v-else :disabled="!!selectedSkin?.cape_id">
 							<button
 								v-tooltip="
 									selectedSkin?.cape_id
@@ -450,8 +454,8 @@ await Promise.all([loadCapes(), loadSkins(), loadCurrentUser()])
 			<div class="flex flex-col gap-5">
 				<h1 class="text-3xl font-extrabold m-0">Please sign-in</h1>
 				<p class="text-lg m-0">
-					Please sign into your Minecraft account to use the skin management features of the
-					Modrinth app.
+					Please sign into your Minecraft account or log in Offline to use the skin management features of the
+					Crackrinth app.
 				</p>
 				<ButtonStyled v-show="accountsCard" color="brand" :disabled="accountsCard.loginDisabled">
 					<button :disabled="accountsCard.loginDisabled" @click="login">

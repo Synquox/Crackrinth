@@ -13,6 +13,7 @@ use crate::state::{
 };
 use crate::util::io;
 use crate::util::rpc::RpcServerBuilder;
+use crate::state::minecraft_skins::{CustomMinecraftSkin, EquippedOfflineSkin};
 use crate::{State, get_resource_file, process, state as st};
 use chrono::Utc;
 use daedalus as d;
@@ -640,6 +641,66 @@ pub async fn launch_minecraft(
         && quick_play_version.server >= QuickPlayServerVersion::BuiltinLegacy
     {
         address.resolve().await?;
+    }
+
+    // Inject offline skin if applicable
+    let mut mc_set_options = mc_set_options.to_vec();
+    if credentials.access_token == "offline_access_token" {
+        if let Some(equipped) =
+            EquippedOfflineSkin::get(credentials.offline_profile.id, &state.pool)
+                .await?
+        {
+            let skin = CustomMinecraftSkin::get_all(
+                credentials.offline_profile.id,
+                &state.pool,
+            )
+            .await?
+            .filter(|s| {
+                let key = s.texture_key.clone();
+                let target_key = equipped.texture_key.clone();
+                async move { key == target_key }
+            })
+            .boxed()
+            .next()
+            .await;
+
+            if let Some(skin) = skin {
+                let texture = skin.texture_blob(&state.pool).await?;
+                let rp_path = instance_path.join("resourcepacks").join("CrackrinthSkin");
+                io::create_dir_all(&rp_path.join("assets/minecraft/textures/entity/player/wide")).await?;
+                io::create_dir_all(&rp_path.join("assets/minecraft/textures/entity/player/slim")).await?;
+                
+                // pack.mcmeta (Format 9 is safe for most modern versions, 1.18+)
+                // We'll use a dynamic format based on version eventually, but 9-15 is usually okay.
+                let pack_format = if profile.game_version.starts_with("1.8") { 1 } else { 9 };
+                let mcmeta = json!({
+                    "pack": {
+                        "pack_format": pack_format,
+                        "description": "Crackrinth Offline Skin"
+                    }
+                });
+                io::write(&rp_path.join("pack.mcmeta"), serde_json::to_vec(&mcmeta)?).await?;
+
+                // Texture paths
+                let paths = [
+                    "assets/minecraft/textures/entity/player/wide/steve.png",
+                    "assets/minecraft/textures/entity/player/slim/alex.png",
+                    "assets/minecraft/textures/entity/steve.png", // Legacy
+                    "assets/minecraft/textures/entity/alex.png",  // Legacy
+                ];
+                for path in paths {
+                    let full_path = rp_path.join(path);
+                    if let Some(parent) = full_path.parent() {
+                        io::create_dir_all(parent).await?;
+                    }
+                    io::write(&full_path, &texture).await?;
+                }
+                
+                // Add to resource packs list in options.txt
+                mc_set_options.push(("resourcePacks".to_string(), "[\"vanilla\",\"file/CrackrinthSkin\"]".to_string()));
+                mc_set_options.push(("incompatibleResourcePacks".to_string(), "[]".to_string()));
+            }
+        }
     }
 
     let (main_class_keep_alive, main_class_path) =
