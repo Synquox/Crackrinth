@@ -168,6 +168,7 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
         .then(|custom_skin| {
             let found_equipped_skin = Arc::clone(&found_equipped_skin);
             let state = Arc::clone(&state);
+            let current_skin_texture_key = Arc::clone(&current_skin_texture_key);
             async move {
                 // Several custom skins may reuse the same texture for different cape or skin model
                 // variations, so check all attributes for correctness
@@ -233,7 +234,7 @@ pub async fn get_available_skins() -> crate::Result<Vec<Skin>> {
     // external service (e.g., the Minecraft launcher or website). This way we guarantee
     // that the currently equipped skin is always returned as available
     if !found_equipped_skin.load(Ordering::Acquire) && selected_credentials.access_token != "offline_access_token" {
-        if let Some(profile) = profile {
+        if let Some(profile) = profile.as_ref() {
              let current_skin = profile.current_skin()?;
              available_skins.push(Skin {
                 texture_key: current_skin.texture_key(),

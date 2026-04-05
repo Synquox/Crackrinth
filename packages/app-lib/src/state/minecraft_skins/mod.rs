@@ -199,10 +199,13 @@ impl EquippedOfflineSkin {
         let minecraft_user_id = minecraft_user_id.as_hyphenated();
         let cape_id = cape_id.map(|id| id.hyphenated());
 
-        sqlx::query!(
+        sqlx::query(
             "INSERT OR REPLACE INTO equipped_offline_skins (minecraft_user_uuid, texture_key, variant, cape_id) VALUES (?, ?, ?, ?)",
-            minecraft_user_id, texture_key, variant, cape_id
         )
+        .bind(minecraft_user_id.to_string())
+        .bind(texture_key)
+        .bind(variant)
+        .bind(cape_id.map(|id| id.to_string()))
         .execute(&mut *db.acquire().await?)
         .await?;
 
@@ -215,18 +218,22 @@ impl EquippedOfflineSkin {
     ) -> crate::Result<Option<Self>> {
         let minecraft_user_id = minecraft_user_id.as_hyphenated();
 
-        Ok(sqlx::query!(
-            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: Hyphenated' \
-            FROM equipped_offline_skins WHERE minecraft_user_uuid = ?",
-            minecraft_user_id
+        use sqlx::Row;
+        Ok(sqlx::query(
+            "SELECT texture_key, variant, cape_id FROM equipped_offline_skins WHERE minecraft_user_uuid = ?",
         )
+        .bind(minecraft_user_id.to_string())
         .fetch_optional(&mut *db.acquire().await?)
         .await?
-        .map(|row| Self {
-            minecraft_user_uuid: minecraft_user_id.into(),
-            texture_key: row.texture_key,
-            variant: row.variant,
-            cape_id: row.cape_id.map(Uuid::from),
+        .map(|row| {
+            let variant: MinecraftSkinVariant = row.get("variant");
+            let cape_id_str: Option<String> = row.get("cape_id");
+            Self {
+                minecraft_user_uuid: Uuid::parse_str(&minecraft_user_id.to_string()).unwrap_or_default(),
+                texture_key: row.get("texture_key"),
+                variant,
+                cape_id: cape_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
+            }
         }))
     }
 }
