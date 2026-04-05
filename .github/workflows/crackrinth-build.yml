@@ -1,0 +1,101 @@
+name: Crackrinth Build
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - platform: macos-latest
+            artifact-target-name: universal-apple-darwin
+          - platform: windows-latest
+            artifact-target-name: x86_64-pc-windows-msvc
+          - platform: ubuntu-latest
+            artifact-target-name: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ''
+          target: ${{ startsWith(matrix.platform, 'macos') && 'x86_64-apple-darwin' || '' }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Linux build dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup Dasel
+        uses: jaxxstorm/action-install-gh-release@v2.1.0
+        with:
+          repo: TomWright/dasel
+          tag: v2.8.1
+          extension-matching: disable
+          rename-to: ${{ startsWith(matrix.platform, 'windows') && 'dasel.exe' || 'dasel' }}
+          chmod: 0755
+
+      - name: Set application version
+        shell: bash
+        run: |
+          APP_VERSION="$(git describe --tags --always | sed -E 's/-([0-9]+)-(g[0-9a-fA-F]+)$/-canary+\1.\2/')"
+          echo "Setting application version to $APP_VERSION"
+          dasel put -f apps/app/Cargo.toml -t string -v "${APP_VERSION#v}" 'package.version'
+          dasel put -f packages/app-lib/Cargo.toml -t string -v "${APP_VERSION#v}" 'package.version'
+          dasel put -f apps/app-frontend/package.json -t string -v "${APP_VERSION#v}" 'version'
+          cp packages/app-lib/.env.prod packages/app-lib/.env
+
+      - name: Setup Turbo cache
+        uses: rharkor/caching-for-turbo@v1.8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build macOS app
+        run: pnpm --filter=@modrinth/app run tauri build --target universal-apple-darwin
+        if: startsWith(matrix.platform, 'macos')
+
+      - name: Build Linux app
+        run: pnpm --filter=@modrinth/app run tauri build
+        if: startsWith(matrix.platform, 'ubuntu')
+
+      - name: Build Windows app
+        run: pnpm --filter=@modrinth/app run tauri build --verbose --bundles "nsis"
+        if: startsWith(matrix.platform, 'windows')
+
+      - name: Upload app bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: Crackrinth-Setup (${{ matrix.artifact-target-name }})
+          path: |
+            target/release/bundle/appimage/Crackrinth_*.AppImage*
+            target/release/bundle/deb/Crackrinth_*.deb*
+            target/release/bundle/rpm/Crackrinth-*.rpm*
+            target/universal-apple-darwin/release/bundle/macos/Crackrinth.app.tar.gz*
+            target/universal-apple-darwin/release/bundle/dmg/Crackrinth_*.dmg*
+            target/release/bundle/nsis/Crackrinth_*-setup.exe*

@@ -34,6 +34,14 @@ export async function login() {
 }
 
 /**
+ * Authenticate a user with offline cracked mode
+ * @param {string} username Username to use
+ */
+export async function login_offline(username) {
+	return await invoke('plugin:auth|login_offline', { username })
+}
+
+/**
  * Retrieves the default user
  * @return {Promise<UUID | undefined>}
  */

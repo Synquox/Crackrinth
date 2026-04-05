@@ -53,6 +53,10 @@
 					<SpinnerIcon v-else class="animate-spin" />
 				</Button>
 			</div>
+			<div v-if="!selectedAccount" class="offline-login-row" style="display:flex; gap:0.5rem; margin-top: 0.5rem; width: 100%;">
+				<input style="flex:1; padding: 0.5rem; border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-base); border: 1px solid var(--color-divider);" v-model="offlineUsername" placeholder="Offline username" />
+				<Button @click="loginOffline()" :disabled="!offlineUsername || loginDisabled">Play Offline</Button>
+			</div>
 			<div v-if="displayAccounts.length > 0" class="account-group">
 				<div v-for="account in displayAccounts" :key="account.profile.id" class="account-row">
 					<Button class="option account" @click="setAccount(account)">
@@ -66,8 +70,12 @@
 			</div>
 			<Button v-if="accounts.length > 0" @click="login()">
 				<PlusIcon />
-				Add account
+				Add Microsoft account
 			</Button>
+			<div class="offline-login-row" style="display:flex; gap:0.5rem; margin-top: 0.5rem; width: 100%;">
+				<input style="flex:1; padding: 0.5rem; border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-base); border: 1px solid var(--color-divider);" v-model="offlineUsername" placeholder="Offline username" />
+				<Button @click="loginOffline()" :disabled="!offlineUsername || loginDisabled">Play Offline</Button>
+			</div>
 		</Card>
 	</transition>
 </template>
@@ -81,6 +89,7 @@ import { trackEvent } from '@/helpers/analytics'
 import {
 	get_default_user,
 	login as login_flow,
+	login_offline as login_offline_flow,
 	remove_user,
 	set_default_user,
 	users,
@@ -107,6 +116,7 @@ const loginDisabled = ref(false)
 const defaultUser = ref()
 const equippedSkin = ref(null)
 const headUrlCache = ref(new Map())
+const offlineUsername = ref('')
 
 async function refreshValues() {
 	defaultUser.value = await get_default_user().catch(handleError)
@@ -192,6 +202,20 @@ async function login() {
 
 	trackEvent('AccountLogIn')
 	loginDisabled.value = false
+}
+
+async function loginOffline() {
+	loginDisabled.value = true
+	const loggedIn = await login_offline_flow(offlineUsername.value).catch(handleSevereError)
+
+	if (loggedIn) {
+		await setAccount(loggedIn)
+		await refreshValues()
+	}
+
+	trackEvent('AccountLogInOffline')
+	loginDisabled.value = false
+	offlineUsername.value = ''
 }
 
 const logout = async (id) => {

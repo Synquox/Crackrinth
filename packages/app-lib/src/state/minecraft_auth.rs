@@ -178,6 +178,31 @@ pub async fn login_finish(
     Ok(credentials)
 }
 
+#[tracing::instrument]
+pub async fn login_offline(
+    username: &str,
+    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
+) -> crate::Result<Credentials> {
+    let offline_uuid_string = format!("OfflinePlayer:{}", username);
+    let offline_uuid = Uuid::new_v3(&Uuid::NAMESPACE_URL, offline_uuid_string.as_bytes());
+
+    let credentials = Credentials {
+        offline_profile: MinecraftProfile {
+            id: offline_uuid,
+            name: username.to_string(),
+            ..MinecraftProfile::default()
+        },
+        access_token: "offline_access_token".to_string(),
+        refresh_token: "offline_refresh_token".to_string(),
+        expires: Utc::now() + Duration::days(3650),
+        active: true,
+    };
+
+    credentials.upsert(exec).await?;
+
+    Ok(credentials)
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Credentials {
     /// The offline profile of the user these credentials are for.
@@ -224,6 +249,11 @@ impl Credentials {
         &mut self,
         exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite> + Copy,
     ) -> crate::Result<()> {
+        // Skip refresh for offline/cracked accounts - they use dummy tokens
+        if self.refresh_token == "offline_refresh_token" {
+            return Ok(());
+        }
+
         // Use a margin of 5 minutes to give e.g. Minecraft and potentially
         // other operations that depend on a fresh token 5 minutes to complete
         // from now, and deal with some classes of clock skew
