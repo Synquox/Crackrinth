@@ -53,10 +53,7 @@
 					<SpinnerIcon v-else class="animate-spin" />
 				</Button>
 			</div>
-			<div v-if="!selectedAccount" class="offline-login-row" style="display:flex; gap:0.5rem; margin-top: 0.5rem; width: 100%;">
-				<input style="flex:1; padding: 0.5rem; border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-base); border: 1px solid var(--color-divider);" v-model="offlineUsername" placeholder="Offline username" />
-				<Button @click="loginOffline()" :disabled="!offlineUsername || loginDisabled">Play Offline</Button>
-			</div>
+
 			<div v-if="displayAccounts.length > 0" class="account-group">
 				<div v-for="account in displayAccounts" :key="account.profile.id" class="account-row">
 					<Button class="option account" @click="setAccount(account)">
