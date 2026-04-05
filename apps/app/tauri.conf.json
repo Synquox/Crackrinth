@@ -19,7 +19,7 @@
 				"installerHooks": "./nsis/hooks.nsi"
 			}
 		},
-		"longDescription": "",
+		"longDescription": "Crackrinth is a powerful, privacy-focused Minecraft launcher that supports both online and offline play. Rebranded from the Modrinth App, it features a built-in skin manager for offline accounts and removes all telemetry and promotional content for a cleaner experience.",
 		"macOS": {
 			"entitlements": "App.entitlements",
 			"exceptionDomain": "",
@@ -27,7 +27,7 @@
 			"providerShortName": null,
 			"signingIdentity": null
 		},
-		"shortDescription": "",
+		"shortDescription": "Crackrinth - The ultimate offline Minecraft launcher",
 		"linux": {
 			"deb": {
 				"depends": []
@@ -50,6 +50,13 @@
 				"schemes": ["crackrinth"]
 			},
 			"mobile": []
+		},
+		"updater": {
+			"active": true,
+			"endpoints": [
+				"https://raw.githubusercontent.com/Synquox/Crackrinth/main/updater.json"
+			],
+			"dialog": true
 		}
 	},
 	"app": {
