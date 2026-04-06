@@ -19,10 +19,6 @@ import org.objectweb.asm.tree.*;
 public final class SkinTransformer extends ClassNodeTransformer {
     @Override
     protected boolean transform(ClassNode classNode) {
-        if (SkinInjector.getInstance() == null) {
-            return false;
-        }
-
         for (MethodNode method : classNode.methods) {
             if (!"fillProfileProperties".equals(method.name)) {
                 continue;

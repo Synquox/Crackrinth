@@ -649,6 +649,16 @@ pub async fn launch_minecraft(
     let mut mc_set_options = mc_set_options.to_vec();
     let mut skin_props: Vec<String> = Vec::new();
     if credentials.access_token == "offline_access_token" {
+        skin_props.push("-Dcrackrinth.offline=true".to_string());
+        skin_props.push(format!(
+            "-Dcrackrinth.skin.playerUuid={}",
+            credentials.offline_profile.id.as_hyphenated()
+        ));
+        skin_props.push(format!(
+            "-Dcrackrinth.skin.playerName={}",
+            credentials.offline_profile.name
+        ));
+
         if let Some(equipped) =
             EquippedOfflineSkin::get(credentials.offline_profile.id, &state.pool)
                 .await?
@@ -682,14 +692,6 @@ pub async fn launch_minecraft(
                     skin_path.to_string_lossy()
                 ));
                 skin_props.push(format!("-Dcrackrinth.skin.variant={variant}"));
-                skin_props.push(format!(
-                    "-Dcrackrinth.skin.playerUuid={}",
-                    credentials.offline_profile.id.as_hyphenated()
-                ));
-                skin_props.push(format!(
-                    "-Dcrackrinth.skin.playerName={}",
-                    credentials.offline_profile.name
-                ));
             }
         }
     }

@@ -3,13 +3,13 @@ package com.modrinth.theseus.agent;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.Base64;
 
 /**
@@ -17,6 +17,10 @@ import java.util.Base64;
  * Reads skin configuration from system properties set by the Crackrinth launcher,
  * starts a local HTTP server to serve the skin texture, and provides the base64-encoded
  * textures property that Minecraft expects.
+ *
+ * <p>For the local player, injects the Crackrinth-configured skin. For other players,
+ * delegates to {@link SkinResolver} which asynchronously looks up skins from the
+ * Mojang API — ensuring zero frame rate impact.
  */
 @SuppressWarnings("CallToPrintStackTrace")
 public final class SkinInjector {
@@ -27,13 +31,15 @@ public final class SkinInjector {
     private final String playerName;
     private final int serverPort;
     private final String texturesPropertyValue;
+    private final boolean hasCustomSkin;
 
-    private SkinInjector(String variant, String playerUuid, String playerName, int serverPort) {
+    private SkinInjector(String variant, String playerUuid, String playerName, int serverPort, boolean hasCustomSkin) {
         this.variant = variant;
         this.playerUuid = playerUuid;
         this.playerName = playerName;
         this.serverPort = serverPort;
-        this.texturesPropertyValue = buildTexturesProperty();
+        this.hasCustomSkin = hasCustomSkin;
+        this.texturesPropertyValue = hasCustomSkin ? buildTexturesProperty() : null;
     }
 
     public static SkinInjector getInstance() {
@@ -43,36 +49,52 @@ public final class SkinInjector {
     /**
      * Initializes the skin injector from system properties. Called once during agent premain.
      * Returns true if skin injection is configured and ready.
+     *
+     * <p>In offline mode, the injector is always created (even without a custom skin)
+     * so that Mojang API fallback works for other players. A custom local skin
+     * is only served if {@code crackrinth.skin.path} is set.
      */
     public static boolean initialize() {
-        String skinPath = System.getProperty("crackrinth.skin.path");
-        if (skinPath == null || skinPath.isEmpty()) {
-            return false;
-        }
-
-        String variant = System.getProperty("crackrinth.skin.variant", "classic");
         String playerUuid = System.getProperty("crackrinth.skin.playerUuid", "");
-        String playerName = System.getProperty("crackrinth.skin.playerName", "Steve");
+        String playerName = System.getProperty("crackrinth.skin.playerName", "");
+        boolean isOffline = Boolean.getBoolean("crackrinth.offline");
 
-        try {
-            Path path = Paths.get(skinPath);
-            if (!Files.exists(path)) {
-                System.err.println("[Crackrinth] Skin file not found: " + skinPath);
-                return false;
-            }
-
-            byte[] skinBytes = Files.readAllBytes(path);
-            int port = startSkinServer(skinBytes);
-
-            instance = new SkinInjector(variant, playerUuid, playerName, port);
-            System.out.println("[Crackrinth] Skin injector initialized - serving on port " + port
-                    + " (variant=" + variant + ", player=" + playerName + ")");
-            return true;
-        } catch (Exception e) {
-            System.err.println("[Crackrinth] Failed to initialize skin injector");
-            e.printStackTrace();
+        if (!isOffline && playerUuid.isEmpty()) {
             return false;
         }
+
+        String skinPath = System.getProperty("crackrinth.skin.path");
+        String variant = System.getProperty("crackrinth.skin.variant", "classic");
+        boolean hasCustomSkin = false;
+        int port = -1;
+
+        if (skinPath != null && !skinPath.isEmpty()) {
+            try {
+                Path path = Paths.get(skinPath);
+                if (Files.exists(path)) {
+                    byte[] skinBytes = Files.readAllBytes(path);
+                    port = startSkinServer(skinBytes);
+                    hasCustomSkin = true;
+                } else {
+                    System.err.println("[Crackrinth] Skin file not found: " + skinPath);
+                }
+            } catch (Exception e) {
+                System.err.println("[Crackrinth] Failed to start skin server");
+                e.printStackTrace();
+            }
+        }
+
+        instance = new SkinInjector(variant, playerUuid, playerName, port, hasCustomSkin);
+
+        if (hasCustomSkin) {
+            System.out.println("[Crackrinth] Skin injector initialized - serving on port " + port + " (variant="
+                    + variant + ", player=" + playerName + ")");
+        } else {
+            System.out.println("[Crackrinth] Skin injector initialized in offline mode"
+                    + " (no custom skin, Mojang API fallback active for other players)");
+        }
+
+        return true;
     }
 
     private static int startSkinServer(final byte[] skinBytes) throws IOException {
@@ -91,13 +113,8 @@ public final class SkinInjector {
 
     private String buildTexturesProperty() {
         String skinModel = "slim".equalsIgnoreCase(variant) ? "slim" : "";
-        String metadataBlock = skinModel.isEmpty()
-                ? ""
-                : ",\"metadata\":{\"model\":\"slim\"}";
+        String metadataBlock = skinModel.isEmpty() ? "" : ",\"metadata\":{\"model\":\"slim\"}";
 
-        // Build the textures JSON that Minecraft expects
-        // The profileId and profileName fields are required but their exact values
-        // don't matter for texture resolution
         String json = "{\"timestamp\":" + System.currentTimeMillis()
                 + ",\"profileId\":\"" + playerUuid.replace("-", "") + "\""
                 + ",\"profileName\":\"" + playerName + "\""
@@ -107,16 +124,10 @@ public final class SkinInjector {
         return Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Returns the base64-encoded textures property value to inject into the GameProfile.
-     */
     public String getTexturesPropertyValue() {
         return texturesPropertyValue;
     }
 
-    /**
-     * Returns the player UUID this skin is for, without hyphens.
-     */
     public String getPlayerUuidSimple() {
         return playerUuid.replace("-", "");
     }
@@ -128,54 +139,64 @@ public final class SkinInjector {
     /**
      * Called via ASM-injected bytecode from SkinTransformer. Receives the GameProfile
      * as Object to avoid compile-time authlib dependency. Uses reflection to:
-     * 1. Check if the profile's UUID matches our player
-     * 2. Get or create a "textures" Property with our skin data
-     * 3. Add it to the profile's PropertyMap
+     * <ol>
+     *   <li>For the local player: inject the Crackrinth custom skin (if set)</li>
+     *   <li>For other players: look up their skin from the Mojang API via {@link SkinResolver}
+     *       (async, never blocks the game thread)</li>
+     * </ol>
      */
     public static void injectSkinIntoProfile(Object gameProfile) {
         SkinInjector self = instance;
-        if (self == null || gameProfile == null) {
+        if (gameProfile == null) {
             return;
         }
 
         try {
-            // GameProfile.getId() -> UUID
             Method getIdMethod = gameProfile.getClass().getMethod("getId");
             Object profileUuid = getIdMethod.invoke(gameProfile);
 
-            if (profileUuid == null) {
+            Method getNameMethod = gameProfile.getClass().getMethod("getName");
+            Object profileNameObj = getNameMethod.invoke(gameProfile);
+            String profileName = profileNameObj != null ? profileNameObj.toString() : null;
+
+            if (profileUuid == null && profileName == null) {
                 return;
             }
 
-            // Check if this is the local player's profile
-            String profileUuidStr = profileUuid.toString().replace("-", "");
-            if (!profileUuidStr.equalsIgnoreCase(self.getPlayerUuidSimple())) {
+            String profileUuidStr = profileUuid != null ? profileUuid.toString().replace("-", "") : "";
+
+            String texturesValue = null;
+
+            if (self != null
+                    && self.hasCustomSkin
+                    && !profileUuidStr.isEmpty()
+                    && profileUuidStr.equalsIgnoreCase(self.getPlayerUuidSimple())) {
+                texturesValue = self.getTexturesPropertyValue();
+            } else {
+                SkinResolver resolver = SkinResolver.getInstance();
+                if (resolver != null && profileName != null && !profileName.isEmpty()) {
+                    texturesValue = resolver.resolveByName(profileName);
+                }
+            }
+
+            if (texturesValue == null) {
                 return;
             }
 
-            // GameProfile.getProperties() -> PropertyMap (extends ForwardingMultimap)
             Method getPropsMethod = gameProfile.getClass().getMethod("getProperties");
             Object propertyMap = getPropsMethod.invoke(gameProfile);
 
-            // Remove existing "textures" entries
             Method removeAllMethod = propertyMap.getClass().getMethod("removeAll", Object.class);
             removeAllMethod.invoke(propertyMap, "textures");
 
-            // Create new Property("textures", value)
-            // authlib Property is com.mojang.authlib.properties.Property
             Class<?> propertyClass = Class.forName("com.mojang.authlib.properties.Property");
             Constructor<?> propConstructor = propertyClass.getConstructor(String.class, String.class);
-            Object texturesProp = propConstructor.newInstance("textures", self.getTexturesPropertyValue());
+            Object texturesProp = propConstructor.newInstance("textures", texturesValue);
 
-            // PropertyMap.put(key, value)
             Method putMethod = propertyMap.getClass().getMethod("put", Object.class, Object.class);
             putMethod.invoke(propertyMap, "textures", texturesProp);
-
-            System.out.println("[Crackrinth] Skin injected for player " + self.getPlayerName());
         } catch (Exception e) {
-            System.err.println("[Crackrinth] Failed to inject skin into profile");
-            e.printStackTrace();
+            // Silently ignore to avoid spamming logs on every profile check
         }
     }
 }
-

@@ -48,13 +48,16 @@ public final class TheseusAgent {
             System.out.println("===== Quick play server version: " + QuickPlayServerVersion.CURRENT + " =====");
         }
 
-        SkinInjector.initialize();
+        boolean isOffline = SkinInjector.initialize();
+
+        if (isOffline) {
+            SkinResolver.initialize();
+        }
 
         final Map<String, ClassTransformer> transformers = new HashMap<>();
         transformers.put("net/minecraft/client/Minecraft", new MinecraftTransformer());
-        if (SkinInjector.getInstance() != null) {
-            transformers.put(
-                    "com/mojang/authlib/yggdrasil/YggdrasilMinecraftSessionService", new SkinTransformer());
+        if (isOffline) {
+            transformers.put("com/mojang/authlib/yggdrasil/YggdrasilMinecraftSessionService", new SkinTransformer());
         }
 
         instrumentation.addTransformer((loader, className, classBeingRedefined, protectionDomain, classData) -> {
