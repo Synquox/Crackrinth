@@ -236,4 +236,18 @@ impl EquippedOfflineSkin {
             }
         }))
     }
+
+    pub async fn remove(
+        minecraft_user_id: Uuid,
+        db: impl sqlx::Acquire<'_, Database = sqlx::Sqlite>,
+    ) -> crate::Result<()> {
+        let minecraft_user_id = minecraft_user_id.as_hyphenated();
+
+        sqlx::query("DELETE FROM equipped_offline_skins WHERE minecraft_user_uuid = ?")
+            .bind(minecraft_user_id.to_string())
+            .execute(&mut *db.acquire().await?)
+            .await?;
+
+        Ok(())
+    }
 }

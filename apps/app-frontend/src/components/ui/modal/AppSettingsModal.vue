@@ -144,7 +144,7 @@ const messages = defineMessages({
 		defaultMessage: 'Downloading v{version}',
 	},
 })
-import CrackrinthSymbol from '@/assets/crackrinth_symbol_logo.png'
+
 </script>
 <template>
 	<TabbedModal ref="modal" :tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)">
@@ -175,7 +175,7 @@ import CrackrinthSymbol from '@/assets/crackrinth_symbol_logo.png'
 						}"
 						@click="devModeCount"
 					>
-						<img :src="CrackrinthSymbol" class="w-6 h-6" />
+						<span class="w-6 h-6 flex items-center justify-center rounded-full bg-brand text-white font-bold text-sm">C</span>
 					</button>
 					<div>
 						<p class="m-0">Crackrinth {{ version }}</p>

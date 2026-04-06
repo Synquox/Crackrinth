@@ -326,6 +326,10 @@ pub async fn set_default_cape(cape: Option<Cape>) -> crate::Result<()> {
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
+    if selected_credentials.access_token == "offline_access_token" {
+        return Ok(());
+    }
+
     let profile =
         selected_credentials.online_profile().await.ok_or_else(|| {
             ErrorKind::OnlineMinecraftProfileUnavailable {
@@ -443,6 +447,11 @@ pub async fn unequip_skin() -> crate::Result<()> {
     let selected_credentials = Credentials::get_default_credential(&state.pool)
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
+
+    if selected_credentials.access_token == "offline_access_token" {
+        EquippedOfflineSkin::remove(selected_credentials.offline_profile.id, &state.pool).await?;
+        return Ok(());
+    }
 
     let profile =
         selected_credentials.online_profile().await.ok_or_else(|| {

@@ -60,7 +60,7 @@ import { $fetch } from 'ofetch'
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
-import CrackrinthLogo from '@/assets/crackrinth_app_logo.png'
+
 import ModrinthLoadingIndicator from '@/components/LoadingIndicatorBar.vue'
 import AccountsCard from '@/components/ui/AccountsCard.vue'
 import Breadcrumbs from '@/components/ui/Breadcrumbs.vue'
@@ -1094,7 +1094,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 		</div>
 		<div data-tauri-drag-region class="app-grid-statusbar bg-bg-raised h-[--top-bar-height] flex">
 			<div data-tauri-drag-region class="flex min-w-0 flex-1 overflow-hidden p-3">
-				<img :src="CrackrinthLogo" class="h-full w-auto shrink-0 pointer-events-none" />
+				<span class="h-full flex items-center shrink-0 pointer-events-none font-extrabold text-contrast text-lg tracking-tight">Crackrinth</span>
 				<div data-tauri-drag-region class="flex shrink-0 items-center gap-1 ml-3">
 					<button
 						class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
