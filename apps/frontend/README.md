@@ -1,10 +1,8 @@
-# ![Frontend Cover](/.github/assets/web_cover.png)
+# 🌐 Crackrinth Web Interface
 
-# Modrinth Web Interface
+Welcome to the Crackrinth Web Interface! This web-based platform is designed for discovering, downloading, and managing Minecraft mods. This is a fork of the Modrinth Web Interface.
 
-Welcome to the Modrinth Web Interface! This web-based platform is designed for discovering, downloading, and managing Minecraft mods.
-
-If you're not a developer and you've stumbled upon this repository, you can access the web interface on the [Modrinth website](https://modrinth.com).
+If you're looking for the official Modrinth project, please visit [modrinth.com](https://modrinth.com).
 
 ## Development
 
