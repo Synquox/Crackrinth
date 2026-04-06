@@ -1,34 +1,34 @@
-# 🛡️ Crackrinth Monorepo
+# Crackrinth Monorepo
 
-![Issues](https://img.shields.io/github/issues-raw/Synquox/Crackrinth?color=c78aff&label=issues&style=for-the-badge)
-![Pull Requests](https://img.shields.io/github/issues-pr-raw/Synquox/Crackrinth?color=c78aff&label=PRs&style=for-the-badge)
-![Contributors](https://img.shields.io/github/contributors/Synquox/Crackrinth?color=c78aff&label=contributors&style=for-the-badge)
-![Commit Activity](https://img.shields.io/github/commit-activity/m/Synquox/Crackrinth?color=c78aff&label=commits&style=for-the-badge)
-![Last Commit](https://img.shields.io/github/last-commit/Synquox/Crackrinth?color=c78aff&label=last%20commit&style=for-the-badge)
+Crackrinth is a fork of the Modrinth Monorepo, changed to make it better for the users. This repository contains the codebase for both the web interface and the desktop application, stripped of restrictive barriers.
 
-## Crackrinth Monorepo
+> [\!IMPORTANT]
+> This is a community fork. For the official, authenticated Modrinth project, please visit [modrinth.com](https://modrinth.com).
 
-Welcome to the Crackrinth Monorepo, the primary codebase for the Crackrinth web interface and app. This is a fork of the Modrinth Monorepo, focused on independence and custom branding.
+-----
 
-If you're looking for the official Modrinth project, please visit [modrinth.com](https://modrinth.com).
+## Why Crackrinth?
 
-## Development
+It's basically just Modrinth without the annoying things:
 
-This repository contains two primary packages. For detailed development information, please refer to their respective READMEs:
+  * **Authentication-Free (Offline Mode):** No account? No problem. You can use every feature without ever needing to log in or authenticate with official services.
+  * **Offline Skin Manager:** Modrinth's skin manager that's a bit changed, so that it works perfectly within "Offline Mode," allowing you to customize your look.
+  * **No Telemetry:** I've gutted all tracking and analytics.
+  * **Ad-Free:** I removed all ads.
 
-- [Web Interface](apps/frontend/README.md)
-- [Desktop App](apps/app/README.md)
 
-## Contributing
+-----
 
-We welcome contributions! Before submitting any contributions, please read our [contributing guidelines](CONTRIBUTING.md).
+## 🍴 Forking & Contributions
 
-If you plan to fork this repository for your own purposes, please review our [copying guidelines](COPYING.md).
+If you plan to fork this repository or contribute improvements, please review our [**Copying Guidelines**](https://www.google.com/search?q=COPYING.md). I welcome community enhancements that align with our goal of an open, independent platform.
 
-## Support
+## 🆘 Support
 
-If you need help with Crackrinth, please open an issue in this repository or contact the maintainers at Synquox.
+Need help or want to report a bug?
 
-## License
+  * **Issues:** Open a ticket in this repository's issue tracker.
 
-All packages in this repository are licensed under their respective licenses. Refer to the LICENSE file in each package for more information.
+## ⚖️ License
+
+All packages in this repository are licensed under their respective original licenses. Please refer to the `LICENSE` file within each package directory for more information.

@@ -2,6 +2,7 @@ package com.modrinth.theseus.agent;
 
 import com.modrinth.theseus.agent.transformers.ClassTransformer;
 import com.modrinth.theseus.agent.transformers.MinecraftTransformer;
+import com.modrinth.theseus.agent.transformers.SkinTransformer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.instrument.Instrumentation;
@@ -47,8 +48,14 @@ public final class TheseusAgent {
             System.out.println("===== Quick play server version: " + QuickPlayServerVersion.CURRENT + " =====");
         }
 
+        SkinInjector.initialize();
+
         final Map<String, ClassTransformer> transformers = new HashMap<>();
         transformers.put("net/minecraft/client/Minecraft", new MinecraftTransformer());
+        if (SkinInjector.getInstance() != null) {
+            transformers.put(
+                    "com/mojang/authlib/yggdrasil/YggdrasilMinecraftSessionService", new SkinTransformer());
+        }
 
         instrumentation.addTransformer((loader, className, classBeingRedefined, protectionDomain, classData) -> {
             final ClassTransformer transformer = transformers.get(className);

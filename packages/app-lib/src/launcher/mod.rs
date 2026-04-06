@@ -645,8 +645,9 @@ pub async fn launch_minecraft(
         address.resolve().await?;
     }
 
-    // Inject offline skin if applicable
+    // Collect offline skin data for Java agent injection
     let mut mc_set_options = mc_set_options.to_vec();
+    let mut skin_props: Vec<String> = Vec::new();
     if credentials.access_token == "offline_access_token" {
         if let Some(equipped) =
             EquippedOfflineSkin::get(credentials.offline_profile.id, &state.pool)
@@ -668,39 +669,27 @@ pub async fn launch_minecraft(
 
             if let Some(skin) = skin {
                 let texture = skin.texture_blob(&state.pool).await?;
-                let rp_path = instance_path.join("resourcepacks").join("CrackrinthSkin");
-                io::create_dir_all(&rp_path.join("assets/minecraft/textures/entity/player/wide")).await?;
-                io::create_dir_all(&rp_path.join("assets/minecraft/textures/entity/player/slim")).await?;
-                
-                // pack.mcmeta (Format 9 is safe for most modern versions, 1.18+)
-                // We'll use a dynamic format based on version eventually, but 9-15 is usually okay.
-                let pack_format = if profile.game_version.starts_with("1.8") { 1 } else { 9 };
-                let mcmeta = json!({
-                    "pack": {
-                        "pack_format": pack_format,
-                        "description": "Crackrinth Offline Skin"
-                    }
-                });
-                io::write(&rp_path.join("pack.mcmeta"), serde_json::to_vec(&mcmeta)?).await?;
+                let skin_path = instance_path.join("crackrinth_skin.png");
+                io::write(&skin_path, &texture).await?;
 
-                // Texture paths
-                let paths = [
-                    "assets/minecraft/textures/entity/player/wide/steve.png",
-                    "assets/minecraft/textures/entity/player/slim/alex.png",
-                    "assets/minecraft/textures/entity/steve.png", // Legacy
-                    "assets/minecraft/textures/entity/alex.png",  // Legacy
-                ];
-                for path in paths {
-                    let full_path = rp_path.join(path);
-                    if let Some(parent) = full_path.parent() {
-                        io::create_dir_all(parent).await?;
-                    }
-                    io::write(&full_path, &texture).await?;
-                }
-                
-                // Add to resource packs list in options.txt
-                mc_set_options.push(("resourcePacks".to_string(), "[\"vanilla\",\"file/CrackrinthSkin\"]".to_string()));
-                mc_set_options.push(("incompatibleResourcePacks".to_string(), "[]".to_string()));
+                let variant = match equipped.variant {
+                    crate::state::MinecraftSkinVariant::Slim => "slim",
+                    _ => "classic",
+                };
+
+                skin_props.push(format!(
+                    "-Dcrackrinth.skin.path={}",
+                    skin_path.to_string_lossy()
+                ));
+                skin_props.push(format!("-Dcrackrinth.skin.variant={variant}"));
+                skin_props.push(format!(
+                    "-Dcrackrinth.skin.playerUuid={}",
+                    credentials.offline_profile.id.as_hyphenated()
+                ));
+                skin_props.push(format!(
+                    "-Dcrackrinth.skin.playerName={}",
+                    credentials.offline_profile.name
+                ));
             }
         }
     }
@@ -710,35 +699,35 @@ pub async fn launch_minecraft(
 
     let rpc_server = RpcServerBuilder::new().launch().await?;
 
-    command.args(
-        args::get_jvm_arguments(
-            args.get(&d::minecraft::ArgumentType::Jvm)
-                .map(|x| x.as_slice()),
-            &natives_dir,
+    let mut jvm_args = args::get_jvm_arguments(
+        args.get(&d::minecraft::ArgumentType::Jvm)
+            .map(|x| x.as_slice()),
+        &natives_dir,
+        &state.directories.libraries_dir(),
+        &state.directories.log_configs_dir(),
+        &args::get_class_paths(
             &state.directories.libraries_dir(),
-            &state.directories.log_configs_dir(),
-            &args::get_class_paths(
-                &state.directories.libraries_dir(),
-                version_info.libraries.as_slice(),
-                &[&main_class_path, &client_path],
-                &java_version.architecture,
-                minecraft_updated,
-            )?,
-            &main_class_path,
-            &version_jar,
-            *memory,
-            Vec::from(java_args),
+            version_info.libraries.as_slice(),
+            &[&main_class_path, &client_path],
             &java_version.architecture,
-            &quick_play_type,
-            quick_play_version,
-            version_info
-                .logging
-                .as_ref()
-                .and_then(|x| x.get(&LoggingSide::Client)),
-            rpc_server.address(),
-        )?
-        .into_iter(),
-    );
+            minecraft_updated,
+        )?,
+        &main_class_path,
+        &version_jar,
+        *memory,
+        Vec::from(java_args),
+        &java_version.architecture,
+        &quick_play_type,
+        quick_play_version,
+        version_info
+            .logging
+            .as_ref()
+            .and_then(|x| x.get(&LoggingSide::Client)),
+        rpc_server.address(),
+    )?;
+    jvm_args.extend(skin_props);
+
+    command.args(jvm_args.into_iter());
 
     // The java launcher requires access to java.lang.reflect in order to force access in to
     // whatever module the main class is in
