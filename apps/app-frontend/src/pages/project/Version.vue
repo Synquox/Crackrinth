@@ -40,7 +40,7 @@
 					class="btn"
 				>
 					<ExternalIcon />
-					Modrinth website
+					Crackrinth website
 				</a>
 			</div>
 		</Card>

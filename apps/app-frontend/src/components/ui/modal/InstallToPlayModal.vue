@@ -246,7 +246,7 @@ const messages = defineMessages({
 	serverRequiresMods: {
 		id: 'app.modal.install-to-play.server-requires-mods',
 		defaultMessage:
-			'This server requires mods to play. Click Install to set up the required files from Modrinth, then launch directly into the server.',
+			'This server requires mods to play. Click Install to set up the required files from Crackrinth, then launch directly into the server.',
 	},
 	requiredModpack: {
 		id: 'app.modal.install-to-play.required-modpack',

@@ -197,7 +197,7 @@
 		</div>
 		<ContextMenu ref="options" @option-clicked="handleOptionsClick">
 			<template #install> <DownloadIcon /> Install </template>
-			<template #open_link> <GlobeIcon /> Open in Modrinth <ExternalIcon /> </template>
+			<template #open_link> <GlobeIcon /> Open in Crackrinth <ExternalIcon /> </template>
 			<template #copy_link> <ClipboardCopyIcon /> Copy link </template>
 		</ContextMenu>
 	</div>

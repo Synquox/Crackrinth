@@ -46,27 +46,15 @@ export type AnalyticsEvent = keyof AnalyticsEventMap
 let initialized = false
 
 export const initAnalytics = () => {
-	if (initialized) return
-	posthog.init('phc_9Iqi6lFs9sr5BSqh9RRNRSJ0mATS9PSgirDiX3iOYJ', {
-		persistence: 'localStorage',
-		api_host: 'https://posthog.modrinth.com',
-	})
-	initialized = true
 }
 
 export const debugAnalytics = () => {
-	if (!initialized) return
-	posthog.debug()
 }
 
 export const optOutAnalytics = () => {
-	if (!initialized) return
-	posthog.opt_out_capturing()
 }
 
 export const optInAnalytics = () => {
-	initAnalytics()
-	posthog.opt_in_capturing()
 }
 
 type OptionalArgs<T> = Record<string, never> extends T ? [properties?: T] : [properties: T]
@@ -75,6 +63,4 @@ export const trackEvent = <E extends AnalyticsEvent>(
 	eventName: E,
 	...args: OptionalArgs<AnalyticsEventMap[E]>
 ) => {
-	if (!initialized) return
-	posthog.capture(eventName, args[0])
 }

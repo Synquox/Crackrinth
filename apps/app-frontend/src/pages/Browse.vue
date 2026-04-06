@@ -973,7 +973,7 @@ previousFilterState.value = JSON.stringify({
 				<LoadingIndicator />
 			</section>
 			<section v-else-if="offline && results?.total_hits === 0" class="offline">
-				You are currently offline. Connect to the internet to browse Modrinth!
+				You are currently offline. Connect to the internet to browse Crackrinth!
 			</section>
 			<section
 				v-else-if="
@@ -1115,7 +1115,7 @@ previousFilterState.value = JSON.stringify({
 				</template>
 
 				<ContextMenu ref="options" @option-clicked="handleOptionsClick">
-					<template #open_link> <GlobeIcon /> Open in Modrinth <ExternalIcon /> </template>
+					<template #open_link> <GlobeIcon /> Open in Crackrinth <ExternalIcon /> </template>
 					<template #copy_link> <ClipboardCopyIcon /> Copy link </template>
 				</ContextMenu>
 			</ProjectCardList>
