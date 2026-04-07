@@ -57,7 +57,9 @@ public final class TheseusAgent {
         final Map<String, ClassTransformer> transformers = new HashMap<>();
         transformers.put("net/minecraft/client/Minecraft", new MinecraftTransformer());
         if (isOffline) {
-            transformers.put("com/mojang/authlib/yggdrasil/YggdrasilMinecraftSessionService", new SkinTransformer());
+            SkinTransformer skinTransformer = new SkinTransformer();
+            transformers.put("com/mojang/authlib/yggdrasil/YggdrasilMinecraftSessionService", skinTransformer);
+            transformers.put("com/mojang/authlib/yggdrasil/TextureUrlChecker", skinTransformer);
         }
 
         instrumentation.addTransformer((loader, className, classBeingRedefined, protectionDomain, classData) -> {

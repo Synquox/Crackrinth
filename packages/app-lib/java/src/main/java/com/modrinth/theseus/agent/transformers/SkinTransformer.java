@@ -19,35 +19,44 @@ import org.objectweb.asm.tree.*;
 public final class SkinTransformer extends ClassNodeTransformer {
     @Override
     protected boolean transform(ClassNode classNode) {
+        boolean transformed = false;
+
         for (MethodNode method : classNode.methods) {
-            if (!"fillProfileProperties".equals(method.name)) {
-                continue;
-            }
-
-            // fillProfileProperties(GameProfile profile, boolean requireSecure) -> GameProfile
-            // We need to inject code before every ARETURN that adds our skin property
-            // to the returned GameProfile
-
-            InsnList inject = buildInjection(classNode);
-            if (inject == null) {
-                return false;
-            }
-
-            // Find all ARETURN instructions and inject before them
-            AbstractInsnNode[] insns = method.instructions.toArray();
-            for (AbstractInsnNode insn : insns) {
-                if (insn.getOpcode() == Opcodes.ARETURN) {
-                    method.instructions.insertBefore(insn, cloneInsnList(inject));
+            if ("fillProfileProperties".equals(method.name)) {
+                InsnList inject = buildInjection(classNode);
+                if (inject != null) {
+                    AbstractInsnNode[] insns = method.instructions.toArray();
+                    for (AbstractInsnNode insn : insns) {
+                        if (insn.getOpcode() == Opcodes.ARETURN) {
+                            method.instructions.insertBefore(insn, cloneInsnList(inject));
+                        }
+                    }
+                    System.out.println("[Crackrinth] Transformed fillProfileProperties in " + classNode.name);
+                    transformed = true;
                 }
-            }
+            } else if ("isAllowedTextureDomain".equals(method.name) && "(Ljava/lang/String;)Z".equals(method.desc)) {
+                method.instructions.clear();
+                if (method.tryCatchBlocks != null) method.tryCatchBlocks.clear();
+                if (method.localVariables != null) method.localVariables.clear();
 
-            System.out.println("[Crackrinth] Transformed fillProfileProperties in " + classNode.name);
-            return true;
+                InsnList list = new InsnList();
+                list.add(new InsnNode(Opcodes.ICONST_1));
+                list.add(new InsnNode(Opcodes.IRETURN));
+                method.instructions.add(list);
+                
+                method.maxStack = 1;
+                method.maxLocals = 2;
+                
+                System.out.println("[Crackrinth] Transformed isAllowedTextureDomain in " + classNode.name);
+                transformed = true;
+            }
         }
 
-        // fillProfileProperties not found - may be a different authlib version
-        System.err.println("[Crackrinth] fillProfileProperties not found in " + classNode.name);
-        return false;
+        if (!transformed) {
+            System.err.println("[Crackrinth] No target methods found in " + classNode.name);
+        }
+        
+        return transformed;
     }
 
     /**

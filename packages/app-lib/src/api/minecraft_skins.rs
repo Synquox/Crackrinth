@@ -283,14 +283,18 @@ pub async fn add_and_equip_custom_skin(
         .await?;
     }
 
-    let profile = selected_credentials.online_profile().await;
-    let (profile_id, texture_key) = if let Some(profile) = profile {
-        sync_cape(&state, &selected_credentials, &profile, cape_override).await?;
-        (profile.id, profile.current_skin()?.texture_key())
-    } else {
-        // Default to a deterministic key for offline/local skins if mojang is unavailable
+    let (profile_id, texture_key) = if selected_credentials.access_token == "offline_access_token" {
         let key = Arc::from(format!("offline_{}", Uuid::new_v4()));
         (selected_credentials.offline_profile.id, key)
+    } else {
+        let profile = selected_credentials.online_profile().await;
+        if let Some(profile) = profile {
+            sync_cape(&state, &selected_credentials, &profile, cape_override).await?;
+            (profile.id, profile.current_skin()?.texture_key())
+        } else {
+            let key = Arc::from(format!("offline_{}", Uuid::new_v4()));
+            (selected_credentials.offline_profile.id, key)
+        }
     };
 
     CustomMinecraftSkin::add(
@@ -423,13 +427,19 @@ pub async fn remove_custom_skin(skin: Skin) -> crate::Result<()> {
         .await?
         .ok_or(ErrorKind::NoCredentialsError)?;
 
+    let profile_id = if selected_credentials.access_token == "offline_access_token" {
+        selected_credentials.offline_profile.id
+    } else {
+        selected_credentials.maybe_online_profile().await.id
+    };
+
     CustomMinecraftSkin {
         texture_key: skin.texture_key.to_string(),
         variant: skin.variant,
         cape_id: skin.cape_id,
     }
     .remove(
-        selected_credentials.maybe_online_profile().await.id,
+        profile_id,
         &state.pool,
     )
     .await?;
