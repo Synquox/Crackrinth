@@ -43,10 +43,10 @@ public final class SkinTransformer extends ClassNodeTransformer {
                 list.add(new InsnNode(Opcodes.ICONST_1));
                 list.add(new InsnNode(Opcodes.IRETURN));
                 method.instructions.add(list);
-                
+
                 method.maxStack = 1;
                 method.maxLocals = 2;
-                
+
                 System.out.println("[Crackrinth] Transformed isAllowedTextureDomain in " + classNode.name);
                 transformed = true;
             }
@@ -55,7 +55,7 @@ public final class SkinTransformer extends ClassNodeTransformer {
         if (!transformed) {
             System.err.println("[Crackrinth] No target methods found in " + classNode.name);
         }
-        
+
         return transformed;
     }
 
